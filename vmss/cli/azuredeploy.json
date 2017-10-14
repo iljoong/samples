@@ -1,0 +1,288 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "releaseNo": {
+            "type": "string"
+        },
+        "vmssName": {
+            "type": "string",
+            "metadata": {
+                "description": "The Name of the VM Scale Set"
+            }
+        },
+        "vmssNamePrefix": {
+            "type": "string"
+        },
+        "instanceCount": {
+            "type": "int",
+            "metadata": {
+                "description": "Number of VM instances to create in the scale set"
+            }
+        },
+        "vmSize": {
+            "type": "string",
+            "metadata": {
+                "description": "The size of the VM instances Created"
+            }
+        },
+        "dnsNamePrefix": {
+            "type": "string",
+            "metadata": {
+                "description": "The Prefix for the DNS name of the new IP Address created"
+            }
+        },
+        "adminUsername": {
+            "type": "string",
+            "metadata": {
+                "description": "The Username of the administrative user for each VM instance created"
+            }
+        },
+        "sshKey": {
+            "type": "string",
+            "metadata": {
+                "description": "The Password of the administrative user for each VM instance created"
+            }
+        },
+        "sourceImageId": {
+            "type": "string",
+            "metadata": {
+                "description": "The source of the blob containing the custom image"
+            }
+        },
+        "frontEndLBPort": {
+            "type": "int",
+            "metadata": {
+                "description": "The front end port to load balance"
+            },
+            "defaultValue": 80
+        },
+        "backEndLBPort": {
+            "type": "int",
+            "metadata": {
+                "description": "The front end port to load balance"
+            },
+            "defaultValue": 80
+        },
+        "probeIntervalInSeconds": {
+            "type": "int",
+            "metadata": {
+                "description": "The interval between load balancer health probes"
+            },
+            "defaultValue": 15
+        },
+        "numberOfProbes": {
+            "type": "int",
+            "metadata": {
+                "description": "The number of probes that need to fail before a VM instance is deemed unhealthy"
+            },
+            "defaultValue": 5
+        },
+        "probeRequestPath": {
+            "type": "string",
+            "metadata": {
+                "description": "The path used for the load balancer health probe"
+            },
+            "defaultValue": "/"
+        }
+    },
+    "variables": {
+        "addressPrefix": "10.0.0.0/16",
+        "subnetName": "[concat('Subnet', parameters('releaseNo'))]",
+        "subnetPrefix": "10.0.0.0/24",
+        "virtualNetworkName": "[concat('vmssvnet', parameters('releaseNo'))]",
+        "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',variables('virtualNetworkName'))]",
+        "subnetRef": "[concat(variables('vnetID'),'/subnets/',variables('subnetName'))]",
+        "publicIPAddressName": "[concat( parameters('vmssName'), '-ip' )]",
+        "publicIPAddressID": "[resourceId('Microsoft.Network/publicIPAddresses',variables('publicIPAddressName'))]",
+        "nicName": "[concat('nicName', parameters('releaseNo'))]",
+        "nicId": "[resourceId('Microsoft.Network/networkInterfaces',variables('nicName'))]",
+        "lbName": "[concat('lbName', parameters('releaseNo'))]",
+        "lbID": "[resourceId('Microsoft.Network/loadBalancers',variables('lbName'))]",
+        "lbFEName": "[concat('lbFE', parameters('releaseNo'))]",
+        "lbWebProbeName": "[concat('lbWebProbe', parameters('releaseNo'))]",
+        "lbBEAddressPool": "[concat('lbAddrPool', parameters('releaseNo'))]",
+        "lbFEIPConfigID": "[concat(variables('lbID'),'/frontendIPConfigurations/',variables('lbFEName'))]",
+        "lbBEAddressPoolID": "[concat(variables('lbID'),'/backendAddressPools/',variables('lbBEAddressPool'))]",
+        "lbWebProbeID": "[concat(variables('lbID'),'/probes/',variables('lbWebProbeName'))]",
+        "networkApi": "2017-06-01",
+        "computeApi": "2016-04-30-preview"
+    },
+    "resources": [
+        {
+            "apiVersion": "[variables('networkApi')]",
+            "type": "Microsoft.Network/virtualNetworks",
+            "name": "[variables('virtualNetworkName')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[variables('addressPrefix')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[variables('subnetName')]",
+                        "properties": {
+                            "addressPrefix": "[variables('subnetPrefix')]"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "apiVersion": "[variables('networkApi')]",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "name": "[variables('publicIPAddressName')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "publicIPAllocationMethod": "Dynamic"
+            }
+        },
+        {
+            "apiVersion": "[variables('networkApi')]",
+            "name": "[variables('lbName')]",
+            "type": "Microsoft.Network/loadBalancers",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[concat('Microsoft.Network/publicIPAddresses/',variables('publicIPAddressName'))]"
+            ],
+            "properties": {
+                "frontendIPConfigurations": [
+                    {
+                        "name": "[variables('lbFEName')]",
+                        "properties": {
+                            "publicIPAddress": {
+                                "id": "[variables('publicIPAddressID')]"
+                            }
+                        }
+                    }
+                ],
+                "backendAddressPools": [
+                    {
+                        "name": "[variables('lbBEAddressPool')]"
+                    }
+                ],
+                "inboundNatPools": [
+                    {
+                        "name": "[concat(variables('lbName'), '-nat')]",
+                        "properties": {
+                            "frontendIPConfiguration": {
+                                "id": "[variables('lbFEIPConfigID')]"
+                            },
+                            "protocol": "tcp",
+                            "frontendPortRangeStart": 50000,
+                            "frontendPortRangeEnd": 51000,
+                            "backendPort": 22
+                        }
+                    }
+                ],
+                "loadBalancingRules": [
+                    {
+                        "name": "weblb",
+                        "properties": {
+                            "frontendIPConfiguration": {
+                                "id": "[variables('lbFEIPConfigID')]"
+                            },
+                            "backendAddressPool": {
+                                "id": "[variables('lbBEAddressPoolID')]"
+                            },
+                            "probe": {
+                                "id": "[variables('lbWebProbeID')]"
+                            },
+                            "protocol": "Tcp",
+                            "frontendPort": "[parameters('frontEndLBPort')]",
+                            "backendPort": "[parameters('backEndLBPort')]",
+                            "enableFloatingIP": false
+                        }
+                    }
+                ],
+                "probes": [
+                    {
+                        "name": "[variables('lbWebProbeName')]",
+                        "properties": {
+                            "protocol": "Http",
+                            "port": "[parameters('backEndLBPort')]",
+                            "intervalInSeconds": "[parameters('probeIntervalInSeconds')]",
+                            "numberOfProbes": "[parameters('numberOfProbes')]",
+                            "requestPath": "[parameters('probeRequestPath')]"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachineScaleSets",
+            "apiVersion": "[variables('computeApi')]",
+            "name": "[parameters('vmssName')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[concat('Microsoft.Network/loadBalancers/',variables('lbName'))]",
+                "[concat('Microsoft.Network/virtualNetworks/',variables('virtualNetworkName'))]"
+            ],
+            "sku": {
+                "name": "[parameters('vmSize')]",
+                "tier": "Standard",
+                "capacity": "[parameters('instanceCount')]"
+            },
+            "properties": {
+                "overprovision": "true",
+                "upgradePolicy": {
+                    "mode": "Manual"
+                },
+                "virtualMachineProfile": {
+                    "storageProfile": {
+                        "imageReference": {
+                            "id": "[parameters('sourceImageId')]"
+                        }
+                    },
+                    "osProfile": {
+                        "computerNamePrefix": "[parameters('vmssNamePrefix')]",
+                        "adminUsername": "[parameters('adminUsername')]",
+                        "linuxConfiguration": {
+                            "disablePasswordAuthentication": true,
+                            "ssh": {
+                                "publicKeys": [
+                                    {
+                                        "path": "[concat('/home/',parameters('adminUsername'),'/.ssh/authorized_keys')]",
+                                        "keyData": "[parameters('sshKey')]"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "networkProfile": {
+                        "networkInterfaceConfigurations": [
+                            {
+                                "name": "nic1",
+                                "properties": {
+                                    "primary": "true",
+                                    "ipConfigurations": [
+                                        {
+                                            "name": "ip1",
+                                            "properties": {
+                                                "subnet": {
+                                                    "id": "[variables('subnetRef')]"
+                                                },
+                                                "loadBalancerBackendAddressPools": [
+                                                    {
+                                                        "id": "[variables('lbBEAddressPoolID')]"
+                                                    }
+                                                ],
+                                                "loadBalancerInboundNatPools": [
+                                                    {
+                                                        "id": "[concat('/subscriptions/', subscription().subscriptionId,'/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Network/loadBalancers/', variables('lbName'), '/inboundNatPools/', concat(variables('lbName'), '-nat'))]"
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    ]
+}

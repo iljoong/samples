@@ -1,0 +1,33 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "releaseNo": {
+            "value": "0"
+        },
+        "vmssNamePrefix": {
+            "value": "vmss"
+        },
+        "vmSize": {
+            "value": "Standard_D1_v2"
+        },
+        "vmssName": {
+            "value": "vmss0"
+        },
+        "instanceCount": {
+            "value": 2
+        },
+        "dnsNamePrefix": {
+            "value": "vmss0"
+        },
+        "adminUsername": {
+            "value": "username"
+        },
+        "sourceImageId": {
+            "value": "/subscriptions/../cicdimage14"
+        },
+        "sshKey": {
+            "value": ".."
+        }
+    }
+}
