@@ -22,6 +22,8 @@ az vmss scale --n $myvmss -g $rgname  --new-capacity 8
 az vmss delete-instances -n $myvmss -g $rgname  --instance-ids 1 2 3 4
 
 # immutable (advanced)
+newcap=$((2*$(az vmss list-instances -n $myvmss -g $rgname --query '[] | length(@)' )))
+az vmss scale -n $myvmss -g $rgname --new-capacity $newcap
 az vmss list-instances -n $myvmss -g $rgname  \
   --query '[?!latestModelApplied].instanceId | join(`" "`, @)' \
   | awk -v myvmss=$myvmss -v rgname=$rgname '{print "az vmss delete-instances -n " myvmss " -g " rgname " --instance-ids " $1}' \
