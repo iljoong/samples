@@ -14,7 +14,7 @@ az vmss update-instances -n $myvmss -g $rgname --instance-ids "*"
 az vmss get-instance-view -n $myvmss -g $rgname  --instance-id "*" \
   --query "[].[instanceView.platformUpdateDomain, instanceId]" -o tsv \
  | sort \
- | awk -v myvmss=$myvmss -v rgname=$rgname '{print "az vmss update-instances -n " myvmss " -g " rgname " --instance-ids " $2}' \
+ | awk -v myvmss=$myvmss -v rgname=$rgname '{print "az vmss update-instances -n " myvmss " -g " rgname " --instance-ids " $2 " && sleep 15s"}' \
  | bash 
 
 # immutable
@@ -23,7 +23,7 @@ az vmss delete-instances -n $myvmss -g $rgname  --instance-ids 1 2 3 4
 
 # immutable (advanced)
 newcap=$((2*$(az vmss list-instances -n $myvmss -g $rgname --query '[] | length(@)' )))
-az vmss scale -n $myvmss -g $rgname --new-capacity $newcap
+az vmss scale -n $myvmss -g $rgname --new-capacity $newcap && sleep 15s
 az vmss list-instances -n $myvmss -g $rgname  \
   --query '[?!latestModelApplied].instanceId | join(`" "`, @)' \
   | awk -v myvmss=$myvmss -v rgname=$rgname '{print "az vmss delete-instances -n " myvmss " -g " rgname " --instance-ids " $1}' \
@@ -35,7 +35,7 @@ az vmss get-instance-view -n $myvmss -g $rgname  --instance-id "*" \
  | sort \
  | awk 'BEGIN {} {a[$1] = a[$1] "@" $2 } END {for (i in a) printf("%s %s\n", i, a[i])} ' \
  | sort \
- | awk -v myvmss=$myvmss -v rgname=$rgname '{print "az vmss update-instances -n " myvmss " -g " rgname " --instance-ids " $2}' \
+ | awk -v myvmss=$myvmss -v rgname=$rgname '{print "az vmss update-instances -n " myvmss " -g " rgname " --instance-ids " $2 " && sleep 15s"}' \
  | sed s/@/' '/g \
  | bash 
 
