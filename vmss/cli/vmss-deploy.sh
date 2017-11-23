@@ -1,8 +1,8 @@
 # Samples
 
-$rgname = "ragname"
-$myvmss = "vmss"
-$vmimage = "/subscriptions/.../Microsoft.Compute/images/cicdimagev2"
+rgname="ragname"
+myvmss="vmss"
+vmimage="/subscriptions/.../Microsoft.Compute/images/cicdimagev2"
 
 # update instance model
 az vmss update -n $myvmss -g $rgname --set virtualMachineProfile.storageProfile.imageReference.id=$vmimage
@@ -18,7 +18,7 @@ az vmss get-instance-view -n $myvmss -g $rgname  --instance-id "*" \
  | bash 
 
 # immutable
-az vmss scale --n $myvmss -g $rgname  --new-capacity 8
+az vmss scale -n $myvmss -g $rgname  --new-capacity 8
 az vmss delete-instances -n $myvmss -g $rgname  --instance-ids 1 2 3 4
 
 # immutable (advanced)

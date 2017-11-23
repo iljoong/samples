@@ -77,11 +77,16 @@ func main() {
 	var (
 		wait  = flag.Int("w", 2, "wait time between httping in seconds")
 		count = flag.Int("n", 10, "number of httping")
+		show  = flag.Bool("s", false, "show body content")
 	)
 
 	flag.Parse()
 
 	args := flag.Args()
+
+	if len(args) < 1 {
+		log.Fatal("httping [option] urlpath")
+	}
 
 	for i := 0; i < *count; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*wait*1000)*time.Millisecond)
@@ -92,7 +97,12 @@ func main() {
 			//panic(err)
 			fmt.Printf("%d: Error: %d msec, %s\n", i, res.time, err.Error())
 		} else {
-			fmt.Printf("%d: %d msec - %s\n", i, res.time, res.output)
+			if *show {
+				fmt.Printf("%d: %d msec - %s\n", i, res.time, res.output)
+			} else {
+				fmt.Printf("%d: %d msec\n", i, res.time)
+			}
+
 		}
 
 		time.Sleep(time.Duration(*wait*1000-res.time) * time.Millisecond)
